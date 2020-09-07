@@ -1,248 +1,157 @@
 package cursednotepad;
 
+import bc.crypto.others.DataLengthException;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import javax.microedition.lcdui.*;
 import javax.microedition.midlet.MIDlet;
 import javax.microedition.midlet.MIDletStateChangeException;
-import javax.microedition.rms.InvalidRecordIDException;
-import javax.microedition.rms.RecordStoreException;
-import javax.microedition.rms.RecordStoreNotOpenException;
+import security.SecureRandom;
 
 public class CursedNotepad extends MIDlet implements CommandListener {
-	private DataManager store;
-	private Note note;
-	private String noteText;
-	private String newNoteText;
-	private Note iv;
-	private String placeholderNote = "Placeholder";
-	private String notePrefix = "note=";
-	private String ivPrefix = "iv=";
-	private int[] ids = new int[2];
-	private Note[] notes = new Note[2];
-	private int noteId;
-	private int ivId;
-	private TextField noteField;
-	private TextField newNoteField;
-	private TextField passwordField;
-	private TextField newPasswordField;
-	private TextField currentPasswordField;
-	private Ticker ticker;
-	private Display screen;
-	private Form loggedOutForm;
-	private Form loggedInForm;
-	private Form changeNoteForm;
-	private Form changePasswordForm;
 
-	public CursedNotepad() throws RecordStoreException
-	{
-		store = new DataManager("data");
-		store.deleteExistingRecords();
+    private ChoiceGroup options;
+    private static final String[] ALGOS = {"AES", "ChaCha20"};
+    private String test = "It was the best of times, it was the worst of times,"
+         + "it was the age of wisdom, it was the age of foolishness,"
+         + "it was the epoch of belief, it was the epoch of incredulity,"
+         + "it was the season of Light, it was the season of Darkness,"
+         + "it was the spring of hope, it was the winter of despair,"
+         + "we had everything before us, we had...";
+    private Display display;
+    private TextField timeField;
+    private TextField iterationsField;
+    private long elapsedTime;
+    byte[] key = new byte[32];
 
-		store.populateEmptyRecordStore();
-		ids = store.getNoteIdsFromRecordStore();
-		noteId = store.getIdOfNoteStartingWithChars(ids, notePrefix);
-		ivId = store.getIdOfNoteStartingWithChars(ids, ivPrefix);
-		note = store.getNote(noteId);
-		iv = store.getNote(ivId);
+    public CursedNotepad() {
+        initKey(key);
+        Form form = new Form("AES / ChaCha20 speed test");
+        iterationsField = new TextField("Number of rounds: ", "100", 7, TextField.NUMERIC);
+        form.append(iterationsField);
+        options = new ChoiceGroup("Choose the encryption algorithm: ", Choice.EXCLUSIVE, ALGOS, null);
+        options.setSelectedIndex(0, true);
+        form.append(options);
+        timeField = new TextField("Total elapsed time[ms]:", "", 75, TextField.UNEDITABLE);
+        form.append(timeField);
+        Command run = new Command("Run test", Command.OK, 0);
+        form.addCommand(run);
+        form.setCommandListener(this);
+        display = Display.getDisplay(this);
+        display.setCurrent(form);
+    }
 
-		screen = Display.getDisplay(this);
-		loggedOutForm = new Form("Log in");
-		passwordField = new TextField("Enter password", "", 30, TextField.PASSWORD);
-		loggedOutForm.append(passwordField);
-		Command login = new Command("Log in", Command.OK, 0);
-		loggedOutForm.addCommand(login);
-		Command quit = new Command("Exit", Command.EXIT, 0);
-		loggedOutForm.addCommand(quit);
-		loggedOutForm.setCommandListener(this);
+    protected void destroyApp(boolean arg0) throws MIDletStateChangeException {
+        // TODO Auto-generated method stub
+    }
 
-		loggedInForm = new Form("Your note");
-		ticker = new Ticker("Safe Notepad");
-		noteField = new TextField("", placeholderNote, 128, TextField.UNEDITABLE);
-		loggedInForm.append(noteField);
-		Command logout = new Command("Log out", Command.EXIT, 0);
-		loggedInForm.addCommand(logout);
-		Command changeNote = new Command("Change note", Command.ITEM, 0);
-		Command changePassword = new Command("Change password", Command.ITEM, 1);
-		loggedInForm.addCommand(changeNote);
-		loggedInForm.addCommand(changePassword);
-		loggedInForm.setTicker(ticker);
-		loggedInForm.setCommandListener(this);
+    protected void pauseApp() {
+        // TODO Auto-generated method stub
+    }
 
-		changeNoteForm = new Form("Change note");
-		newNoteField = new TextField(
-				"New note: ", "", 128, TextField.ANY);
-		changeNoteForm.append(newNoteField);
-		Command cancel = new Command("Log out", Command.EXIT, 0);
-		changeNoteForm.addCommand(cancel);
-		Command saveNote = new Command("Save", Command.OK, 0);
-		changeNoteForm.addCommand(saveNote);
-		changeNoteForm.setCommandListener(this);
+    protected void startApp() throws MIDletStateChangeException {
+        // TODO Auto-generated method stub
+    }
 
-		changePasswordForm = new Form("Change password");
-		currentPasswordField = new TextField("Enter current password", "", 30, TextField.PASSWORD);
-		changePasswordForm.append(currentPasswordField);
-		newPasswordField = new TextField("Enter new password", "", 30, TextField.PASSWORD);
-		changePasswordForm.append(newPasswordField);
-		Command savePassword = new Command("Save", Command.OK, 0);
-		changePasswordForm.addCommand(savePassword);
-		Command cancelPasswordChange = new Command("Log out", Command.EXIT, 0);
-		changePasswordForm.addCommand(cancelPasswordChange);
-		changePasswordForm.setCommandListener(this);
+    private void initKey(byte[] key)
+    {
+        SecureRandom sr = SecureRandom.getInstance("SHA256PRNG");
+        sr.nextBytes(key);
+    }
 
-		screen.setCurrent(loggedOutForm);
-	}
+    public void commandAction(Command c, Displayable s) {
+        if (c.getCommandType() == Command.OK) {
+            int iterations = Integer.parseInt(iterationsField.getString());
+            int index = options.getSelectedIndex();
+            switch (index) {
+                case 0:
+                    elapsedTime = runTimes(iterations, 0, key);
+                    updateTime(elapsedTime);
+                    break;
+                case 1:
+                    runTimes(iterations, 1, key);
+                    updateTime(elapsedTime);
+                    break;
+            }
+        }
+    }
 
-	protected void destroyApp(boolean arg0) throws MIDletStateChangeException {
-		// TODO Auto-generated method stub
+    protected long runTimes(int times, int method, byte[] key)
+    {
+        long startTime = System.currentTimeMillis();
+        int i = 0;
+        while (i<times) {
+            if (method == 0) {
+                runAES(key);
+            }
+            if (method == 1) {
+                runChaCha(key);
+            }
+            i++;
+        }
+        long stopTime = System.currentTimeMillis();
+        elapsedTime = stopTime - startTime;
+        return elapsedTime;
+    }
 
-	}
+    protected void updateTime(long elapsedTime) {
+        timeField.setString(Long.toString(elapsedTime));
+    }
 
-	protected void pauseApp() {
-		// TODO Auto-generated method stub
+    protected void runAES(byte[] key) {
+        try {
+            AESManager aes = new AESManager();
+            byte[] ibEnc = test.getBytes("UTF-8");
+            byte[] obEnc = new byte[ibEnc.length];
+            SecureRandom sr = SecureRandom.getInstance("SHA256PRNG");
+            byte[] iv = new byte[16];
+            sr.nextBytes(key);
+            sr.nextBytes(iv);
+            aes.encrypt(key, ibEnc, obEnc, iv, test);
+            byte[] ibDec = new byte[obEnc.length];
+            System.arraycopy(obEnc, 0, ibDec, 0, obEnc.length);
+            byte[] obDec = new byte[ibEnc.length];
+            aes.decrypt(key, ibDec, obDec, iv, test);
+            String actual = new String(obDec, "UTF-8");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } catch (DataLengthException ex) {
+            ex.printStackTrace();
+        } catch (IllegalStateException ex) {
+            ex.printStackTrace();
+        }
+    }
 
-	}
+    protected void runChaCha(byte[] key) {
+        try {
+            ChaChaManager chaCha = new ChaChaManager();
+            ByteArrayInputStream isEnc = new ByteArrayInputStream(test.getBytes("UTF-8"));
+            ByteArrayOutputStream osEnc = new ByteArrayOutputStream();
+            SecureRandom sr = SecureRandom.getInstance("SHA256PRNG");
+            byte[] iv = new byte[8];
+            sr.nextBytes(iv);
+            try {
+                chaCha.encrypt(isEnc, osEnc, key, iv);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+            byte[] encrypted = osEnc.toByteArray();
 
-	protected void startApp() throws MIDletStateChangeException {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void updateNotePreview(String noteText)
-	{
-		TextField updatedNoteField = new TextField("", noteText, 128, TextField.UNEDITABLE);
-		loggedInForm.deleteAll();
-		loggedInForm.append(updatedNoteField);
-	}
-
-	public void updateIds()
-	{
-		try {
-			ids = store.getNoteIdsFromRecordStore();
-		} catch (RecordStoreNotOpenException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (InvalidRecordIDException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-
-	public void updateNotes(int[] ids)
-	{
-		try {
-			notes = store.getNotesFromRecordStore(ids);
-		} catch (RecordStoreNotOpenException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (InvalidRecordIDException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (RecordStoreException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-
-	public void printNotesFromRS()
-	{
-		try {
-			notes = store.getNotesFromRecordStore(ids);
-		} catch (RecordStoreNotOpenException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (InvalidRecordIDException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (RecordStoreException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		for (int i = 0; i < notes.length; i++)
-		{
-			System.out.println(notes[i].getNoteContent());
-		}
-	}
-
-	public void commandAction(Command c, Displayable s)
-	{
-		if (s == loggedOutForm)
-		{
-			printNotesFromRS();
-			updateIds();
-			updateNotes(ids);
-
-			if (c.getCommandType() == Command.OK)
-			{
-				/* TODO: verify password
-				 * => check if the note can be decrypted using the provided password */
-				if (passwordField.getString().equals("1234"))
-				{
-					noteText = store.getNoteStartingWithChars(notes, notePrefix);
-					updateNotePreview(noteText);
-					screen.setCurrent(loggedInForm);
-					passwordField.setString("");
-				}
-			}
-			if (c.getCommandType() == Command.EXIT)
-				this.notifyDestroyed();
-		}
-
-		if (s == loggedInForm)
-		{
-			if (c.getCommandType() == Command.EXIT)
-			{
-				screen.setCurrent(loggedOutForm);
-			}
-			if (c.getCommandType() == Command.ITEM)
-			{
-				if (c.getPriority() == 0)
-				{
-					screen.setCurrent(changeNoteForm);
-				}
-				if (c.getPriority() == 1)
-				{
-					screen.setCurrent(changePasswordForm);
-				}
-			}
-		}
-
-		if (s == changeNoteForm)
-		{
-			if (c.getCommandType() == Command.OK)
-			{
-				System.out.println(newNoteField.getString());
-				note.setNoteContent(newNoteField.getString());
-				try {
-					store.editNote(note, noteId);
-				} catch (RecordStoreException rse) {
-					rse.printStackTrace();
-				}
-				screen.setCurrent(loggedOutForm);
-				newNoteField.setString("");
-				printNotesFromRS();
-			 }
-			if (c.getCommandType() == Command.EXIT)
-			{
-				screen.setCurrent(loggedOutForm);
-			}
-		}
-
-		if (s == changePasswordForm)
-		{
-			if (c.getCommandType() == Command.OK)
-			{
-				if (currentPasswordField.getString() == "1234" && !newPasswordField.getString().equals(""))
-				{
-					/* TODO: update password
-                                         * => change the IV
-					 * => reencrypt the note with the new password */
-					screen.setCurrent(loggedInForm);
-				}
-			}
-
-			if (c.getCommandType() == Command.EXIT)
-				screen.setCurrent(loggedOutForm);
-		}
-	}
-
+            InputStream isDec = new ByteArrayInputStream(encrypted);
+            ByteArrayOutputStream osDec = new ByteArrayOutputStream();
+            try {
+                chaCha.decrypt(isDec, osDec, key, iv);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+            byte[] decrypted = osDec.toByteArray();
+            String actual = new String(decrypted, "UTF-8");
+        } catch (UnsupportedEncodingException ex) {
+            ex.printStackTrace();
+        }
+    }
 }
 
