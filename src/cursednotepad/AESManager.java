@@ -22,7 +22,6 @@ public class AESManager {
             KeyParameter keyParam = new KeyParameter(key);
             ParametersWithIV keyParamWithIV = new ParametersWithIV(keyParam, iv, 0, 16);
             cipher.init(encrypt, keyParamWithIV);
-            int length = cipher.processBytes(ib, 0, ib.length, ob, 0);
         } catch (DataLengthException ex) {
             ex.printStackTrace();
         } catch (IllegalStateException ex) {
