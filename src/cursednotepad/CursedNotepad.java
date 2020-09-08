@@ -1,10 +1,7 @@
 package cursednotepad;
 
 import bc.crypto.others.DataLengthException;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import javax.microedition.lcdui.*;
 import javax.microedition.midlet.MIDlet;
@@ -20,7 +17,7 @@ public class CursedNotepad extends MIDlet implements CommandListener {
          + "it was the epoch of belief, it was the epoch of incredulity,"
          + "it was the season of Light, it was the season of Darkness,"
          + "it was the spring of hope, it was the winter of despair,"
-         + "we had everything before us, we had no blah blah";
+         + "we had everything before us, we had...";
     private Display display;
     private TextField timeField;
     private TextField iterationsField;
@@ -128,27 +125,26 @@ public class CursedNotepad extends MIDlet implements CommandListener {
     protected void runChaCha(byte[] key) {
         try {
             ChaChaManager chaCha = new ChaChaManager();
-            ByteArrayInputStream isEnc = new ByteArrayInputStream(test.getBytes("UTF-8"));
-            ByteArrayOutputStream osEnc = new ByteArrayOutputStream();
+            byte[] ibEnc = test.getBytes("UTF-8");
+            byte[] obEnc = new byte[ibEnc.length];
             SecureRandom sr = SecureRandom.getInstance("SHA256PRNG");
             byte[] iv = new byte[8];
             sr.nextBytes(iv);
             try {
-                chaCha.encrypt(isEnc, osEnc, key, iv);
+                chaCha.encrypt(ibEnc, obEnc, key, iv);
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
-            byte[] encrypted = osEnc.toByteArray();
-
-            InputStream isDec = new ByteArrayInputStream(encrypted);
-            ByteArrayOutputStream osDec = new ByteArrayOutputStream();
+            byte[] ibDec = new byte[obEnc.length];
+            System.arraycopy(obEnc, 0, ibDec, 0, obEnc.length);
+            byte[] obDec = new byte[ibEnc.length];
             try {
-                chaCha.decrypt(isDec, osDec, key, iv);
+                chaCha.decrypt(ibDec, obDec, key, iv);
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
-            byte[] decrypted = osDec.toByteArray();
-            String actual = new String(decrypted, "UTF-8");
+            String actual = new String(obDec, "UTF-8");
+            System.out.println(actual);
         } catch (UnsupportedEncodingException ex) {
             ex.printStackTrace();
         }
