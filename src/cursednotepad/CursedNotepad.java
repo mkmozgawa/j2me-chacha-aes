@@ -14,13 +14,13 @@ import security.SecureRandom;
 public class CursedNotepad extends MIDlet implements CommandListener {
 
     private ChoiceGroup options;
-    private static final String[] ALGOS = {"AES", "ChaCha20"};
+    private static final String[] ALGOS = {"AES (256-bit)", "ChaCha20"};
     private String test = "It was the best of times, it was the worst of times,"
          + "it was the age of wisdom, it was the age of foolishness,"
          + "it was the epoch of belief, it was the epoch of incredulity,"
          + "it was the season of Light, it was the season of Darkness,"
          + "it was the spring of hope, it was the winter of despair,"
-         + "we had everything before us, we had...";
+         + "we had everything before us, we had no blah blah";
     private Display display;
     private TextField timeField;
     private TextField iterationsField;
@@ -107,7 +107,7 @@ public class CursedNotepad extends MIDlet implements CommandListener {
             byte[] ibEnc = test.getBytes("UTF-8");
             byte[] obEnc = new byte[ibEnc.length];
             SecureRandom sr = SecureRandom.getInstance("SHA256PRNG");
-            byte[] iv = new byte[16];
+            byte[] iv = new byte[32];
             sr.nextBytes(key);
             sr.nextBytes(iv);
             aes.encrypt(key, ibEnc, obEnc, iv, test);
