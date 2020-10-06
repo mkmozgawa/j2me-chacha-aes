@@ -1,7 +1,5 @@
 package cursednotepad;
 
-import bc.crypto.others.DataLengthException;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import javax.microedition.lcdui.*;
 import javax.microedition.midlet.MIDlet;
@@ -61,34 +59,28 @@ public class CursedNotepad extends MIDlet implements CommandListener {
 
     public void commandAction(Command c, Displayable s) {
         if (c.getCommandType() == Command.OK) {
-            int iterations = Integer.parseInt(iterationsField.getString());
-            int index = options.getSelectedIndex();
-            switch (index) {
-                case 0:
-                    elapsedTime = runTimes(iterations, 0, key);
-                    updateTime(elapsedTime);
-                    break;
-                case 1:
-                    runTimes(iterations, 1, key);
-                    updateTime(elapsedTime);
-                    break;
+            try {
+                int iterations = Integer.parseInt(iterationsField.getString());
+                int index = options.getSelectedIndex();
+                runTimes(iterations, index, key);
+            } catch (UnsupportedEncodingException ex) {
+                ex.printStackTrace();
             }
         }
     }
 
-    protected long runTimes(int times, int method, byte[] key)
+    protected long runTimes(int times, int cipherType, byte[] key) throws UnsupportedEncodingException
     {
         long startTime = System.currentTimeMillis();
         int i = 0;
         while (i<times) {
-            if (method == 0) {
-                runAES(key);
-            }
-            if (method == 1) {
-                runChaCha(key);
-            }
+            CipherManager cipher = new CipherManager(cipherType);
+            byte[] encrypted = runEncryption(key, cipher);
+            byte[] decrypted = runDecryption(key, cipher, encrypted);
+            String decryptedString = new String(decrypted, "UTF-8");
+//            System.out.println(decryptedString);
             i++;
-        }
+            }
         long stopTime = System.currentTimeMillis();
         elapsedTime = stopTime - startTime;
         return elapsedTime;
@@ -98,56 +90,23 @@ public class CursedNotepad extends MIDlet implements CommandListener {
         timeField.setString(Long.toString(elapsedTime));
     }
 
-    protected void runAES(byte[] key) {
+    protected byte[] runEncryption(byte[] key, CipherManager cipher) {
+        byte[] ibEnc;
         try {
-            AESManager aes = new AESManager();
-            byte[] ibEnc = test.getBytes("UTF-8");
+            ibEnc = test.getBytes("UTF-8");
             byte[] obEnc = new byte[ibEnc.length];
-            SecureRandom sr = SecureRandom.getInstance("SHA256PRNG");
-            byte[] iv = new byte[32];
-            sr.nextBytes(key);
-            sr.nextBytes(iv);
-            aes.encrypt(key, ibEnc, obEnc, iv, test);
-            byte[] ibDec = new byte[obEnc.length];
-            System.arraycopy(obEnc, 0, ibDec, 0, obEnc.length);
-            byte[] obDec = new byte[ibEnc.length];
-            aes.decrypt(key, ibDec, obDec, iv, test);
-            String actual = new String(obDec, "UTF-8");
-        } catch (IOException ex) {
+            cipher.encrypt(key, ibEnc, obEnc);
+            return obEnc;
+        } catch (UnsupportedEncodingException ex) {
             ex.printStackTrace();
-        } catch (DataLengthException ex) {
-            ex.printStackTrace();
-        } catch (IllegalStateException ex) {
-            ex.printStackTrace();
+            return "oops".getBytes();
         }
     }
 
-    protected void runChaCha(byte[] key) {
-        try {
-            ChaChaManager chaCha = new ChaChaManager();
-            byte[] ibEnc = test.getBytes("UTF-8");
-            byte[] obEnc = new byte[ibEnc.length];
-            SecureRandom sr = SecureRandom.getInstance("SHA256PRNG");
-            byte[] iv = new byte[8];
-            sr.nextBytes(iv);
-            try {
-                chaCha.encrypt(ibEnc, obEnc, key, iv);
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-            byte[] ibDec = new byte[obEnc.length];
-            System.arraycopy(obEnc, 0, ibDec, 0, obEnc.length);
-            byte[] obDec = new byte[ibEnc.length];
-            try {
-                chaCha.decrypt(ibDec, obDec, key, iv);
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-            String actual = new String(obDec, "UTF-8");
-            System.out.println(actual);
-        } catch (UnsupportedEncodingException ex) {
-            ex.printStackTrace();
-        }
+    protected byte[] runDecryption(byte[] key, CipherManager cipher, byte[] ibEnc) {
+        byte[] obEnc = new byte[ibEnc.length];
+        cipher.decrypt(key, ibEnc, obEnc);
+        return obEnc;
     }
 }
 

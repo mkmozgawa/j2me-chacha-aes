@@ -14,6 +14,7 @@ import java.io.IOException;
 
 public class ChaChaManager {
     // it do be dancing
+
     public void doChaCha(boolean encrypt, byte[] ib, byte[] ob, byte[] key, byte[] iv) throws IOException {
         CipherParameters cp = new KeyParameter(key);
         ParametersWithIV params = new ParametersWithIV(cp, iv);
@@ -22,11 +23,11 @@ public class ChaChaManager {
         engine.processBytes(ib, 0, ib.length, ob, 0);
     }
 
-    public void encrypt(byte[] ib, byte[] ob, byte[] key, byte[] iv) throws IOException {
+    public void encrypt(byte[] key, byte[] ib, byte[] ob, byte[] iv) throws IOException {
         doChaCha(true, ib, ob, key, iv);
     }
 
-    public void decrypt(byte[] ib, byte[] ob, byte[] key, byte[] iv) throws IOException {
+    public void decrypt(byte[] key, byte[] ib, byte[] ob, byte[] iv) throws IOException {
         doChaCha(false, ib, ob, key, iv);
     }
 }

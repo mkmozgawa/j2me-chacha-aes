@@ -7,7 +7,6 @@ package cursednotepad;
 import bc.crypto.engines.RijndaelEngine;
 import bc.crypto.modes.CBCBlockCipher;
 import bc.crypto.others.DataLengthException;
-import bc.crypto.others.InvalidCipherTextException;
 import bc.crypto.paddings.PKCS7Padding;
 import bc.crypto.paddings.PaddedBufferedBlockCipher;
 import bc.crypto.params.KeyParameter;
@@ -32,11 +31,11 @@ public class AESManager {
         }
     }
 
-    public void encrypt(byte[] key, byte[] ib, byte[] ob, byte[] iv, String plaintext) throws IOException {
+    public void encrypt(byte[] key, byte[] ib, byte[] ob, byte[] iv) throws IOException {
         doAES(true, ib, ob, key, iv);
     }
 
-    public void decrypt(byte[] key, byte[] ib, byte[] ob, byte[] iv, String plaintext) throws IOException {
+    public void decrypt(byte[] key, byte[] ib, byte[] ob, byte[] iv) throws IOException {
         doAES(false, ib, ob, key, iv);
     }
 }
